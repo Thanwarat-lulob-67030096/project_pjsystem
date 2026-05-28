@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบคำนวณและค้นหาการเบิกพาเลทไม้ (Wood Pallet Optimizer)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Sarabun', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <!-- Header Navigation -->
+    <header class="bg-amber-800 text-white shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-amber-100 p-2 rounded-lg text-amber-800">
+                    <i data-lucide="package" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-wide">Wood Pallet Optimizer</h1>
+                    <p class="text-xs text-amber-200">ระบบคัดสรรและคำนวณกลุ่มพาเลทแยกตามหน้าไม้จริง</p>
+                </div>
+            </div>
+            
+            <!-- Quick Navigation Tabs -->
+            <div class="flex bg-amber-900/50 p-1 rounded-lg">
+                <button onclick="switchTab('search')" id="tab-search" class="px-4 py-1.5 rounded-md text-sm font-medium transition-all bg-amber-600 text-white">
+                    <span class="flex items-center gap-2">
+                        <i data-lucide="search" class="w-4 h-4"></i> ค้นหาการเบิก (PD)
+                    </span>
+                </button>
+                <button onclick="switchTab('stock')" id="tab-stock" class="px-4 py-1.5 rounded-md text-sm font-medium transition-all text-amber-200 hover:text-white">
+                    <span class="flex items-center gap-2">
+                        <i data-lucide="database" class="w-4 h-4"></i> จัดการคลังไม้ (Inbound)
+                    </span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+        
+        <!-- ================= TAB 1: SEARCH & CALCULATION (FOR PD) ================= -->
+        <section id="section-search" class="space-y-6">
+            
+            <!-- Welcome Info & Reference Alert -->
+            <div class="bg-blue-50 border border-blue-200 p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 text-sm text-blue-900">
+                <div class="flex items-center gap-2.5">
+                    <div class="bg-blue-100 p-2 rounded-lg text-blue-800">
+                        <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <span class="font-bold">ข้อมูลเชื่อมโยงระบบคลังสินค้าสำเร็จ</span>
+                        <p class="text-xs text-blue-700">อ้างอิงข้อมูลพาเลทไม้เข้าจริงตามรายงานเอกสาร <strong class="underline">Inbound_Warehouse_Report_2026-05-28.xlsx</strong></p>
+                    </div>
+                </div>
+                <span class="bg-blue-200/50 text-blue-800 text-xs px-2.5 py-1 rounded-full font-bold">ข้อมูลเรียลไทม์</span>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                <!-- Left Column: Input Form & Filters (5/12 of width) -->
+                <div class="lg:col-span-5 space-y-6">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-5">
+                        <div>
+                            <span class="bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1 rounded-full uppercase">ฝ่ายผลิต (PD)</span>
+                            <h2 class="text-2xl font-bold text-slate-800 mt-2">ระบุเงื่อนไขการเบิกไม้</h2>
+                            <p class="text-sm text-slate-500 mt-1">เลือกขนาดหน้าไม้ที่ต้องการผลิตและคีย์จำนวนคิวฟุต ระบบจะจัดชุดพาเลทที่เหมาะสมที่สุดให้</p>
+                        </div>
+
+                        <!-- 1. Select Wood Face / Dimension (CRITICAL FEATURE) -->
+                        <div class="space-y-1.5">
+                            <label class="block text-sm font-bold text-slate-700 flex items-center gap-1.5">
+                                <i data-lucide="layers" class="w-4 h-4 text-amber-700"></i>
+                                เลือกขนาดหน้าไม้ / ชนิดไม้:
+                            </label>
+                            <select id="search-wood-face" onchange="autoCalculate()" class="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-amber-600 focus:outline-none bg-white font-medium text-slate-800 transition-colors">
+                                <!-- Options will be dynamically populated with list of wood faces -->
+                            </select>
+                        </div>
+
+                        <!-- 2. Target Input Box -->
+                        <div class="space-y-1.5">
+                            <label class="block text-sm font-bold text-slate-700 flex items-center gap-1.5">
+                                <i data-lucide="calculator" class="w-4 h-4 text-amber-700"></i>
+                                จำนวนคิวฟุตที่ต้องการผลิต (Target CFT):
+                            </label>
+                            <div class="relative">
+                                <input type="number" id="target-cft" oninput="autoCalculate()" placeholder="ระบุตัวเลข เช่น 100" min="0.1" step="0.01" class="w-full pl-5 pr-20 py-4 border-2 border-amber-500/30 rounded-2xl focus:border-amber-600 focus:ring-4 focus:ring-amber-100 transition-all text-2xl font-bold text-slate-800 focus:outline-none">
+                                <span class="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-lg">คิวฟุต</span>
+                            </div>
+                        </div>
+
+                        <!-- Mini Stock Helper Card -->
+                        <div class="bg-amber-50/70 p-4 rounded-xl border border-amber-100 space-y-2 text-xs text-amber-900 leading-relaxed">
+                            <div class="font-bold flex items-center gap-1">
+                                <i data-lucide="shield-check" class="w-4 h-4"></i> การตรวจสอบหน้าไม้ทางเทคนิค:
+                            </div>
+                            <p>
+                                ระบบจะค้นหาและรวมพาเลทเฉพาะ <strong>"หน้าไม้ขนาดเดียวกัน"</strong> เท่านั้น เพื่อป้องกันไม่ให้คนงานในไลน์ผลิตสับสนและนำไม้คนละขนาดไปใช้ปะปนกันในกระบวนการทำงาน
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Available Stock Quick View under selected face -->
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
+                        <div class="flex justify-between items-center border-b pb-2 border-slate-100">
+                            <h3 class="font-bold text-slate-800 flex items-center gap-1.5 text-sm">
+                                <i data-lucide="boxes" class="text-amber-700 w-4.5 h-4.5"></i>
+                                สต็อกหน้าไม้นี้ที่เหลือในคลัง
+                            </h3>
+                            <span id="badge-total-stock" class="bg-amber-50 text-amber-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">
+                                0 พาเลท
+                            </span>
+                        </div>
+                        <div class="overflow-y-auto max-h-[220px] space-y-2 pr-1" id="mini-stock-list">
+                            <!-- Injected dynamically -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Results Display (7/12 of width) -->
+                <div class="lg:col-span-7 space-y-6">
+                    
+                    <!-- Result Box -->
+                    <div id="result-display-card" class="bg-white rounded-2xl shadow-md border-2 border-slate-100 overflow-hidden min-h-[460px] flex flex-col justify-between">
+                        
+                        <!-- Initial state before searching -->
+                        <div id="no-result-placeholder" class="flex-grow flex flex-col items-center justify-center p-12 text-center space-y-4">
+                            <div class="bg-amber-50 p-5 rounded-full text-amber-700 animate-pulse">
+                                <i data-lucide="arrow-left-right" class="w-12 h-12"></i>
+                            </div>
+                            <h3 class="text-xl font-bold text-slate-700">ระบุหน้าไม้และจำนวนคิวฟุตทางซ้ายมือ</h3>
+                            <p class="text-sm text-slate-400 max-w-sm font-medium">ระบบจะสแกนชุดพาเลทในคลังที่เหมาะสมที่สุดเพื่อดึงข้อมูลคิวฟุตที่จ่ายออกจริงแสดงให้ทันที</p>
+                        </div>
+
+                        <!-- Active Result View (Hidden initially) -->
+                        <div id="active-result-view" class="hidden flex-col justify-between h-full p-6 sm:p-8 space-y-6">
+                            
+                            <!-- Header Info -->
+                            <div class="border-b pb-4 flex justify-between items-start gap-4">
+                                <div>
+                                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block">ผลวิเคราะห์คำนวณการเบิกจริง</span>
+                                    <h3 class="text-lg font-bold text-slate-800">แนะนำชุดพาเลทที่ต้องจ่ายออก</h3>
+                                </div>
+                                <button onclick="confirmDispense()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-all shadow-md flex items-center gap-2">
+                                    <i data-lucide="check-square" class="w-4 h-4"></i> ยืนยันเบิกจ่ายไม้นี้
+                                </button>
+                            </div>
+
+                            <!-- Calculations Blocks -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <!-- Box 1: Required -->
+                                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-between">
+                                    <span class="text-xs font-semibold text-slate-500">ยอดที่ PD คีย์ต้องการ:</span>
+                                    <div class="flex items-baseline gap-1 mt-1">
+                                        <span id="res-target" class="text-3xl font-extrabold text-slate-800">0.00</span>
+                                        <span class="text-sm text-slate-500 font-bold">คิวฟุต</span>
+                                    </div>
+                                </div>
+
+                                <!-- Box 2: Can actually withdraw (Primary Highlight) -->
+                                <div class="bg-amber-50 p-4 rounded-xl border-2 border-amber-400/50 flex flex-col justify-between">
+                                    <span class="text-xs font-bold text-amber-800">ยอดรวมพาเลทที่จ่ายจริง:</span>
+                                    <div class="flex items-baseline gap-1 mt-1">
+                                        <span id="res-actual" class="text-4xl font-extrabold text-amber-800">0.00</span>
+                                        <span class="text-sm text-amber-800 font-bold">คิวฟุต</span>
+                                    </div>
+                                    <span id="res-excess-label" class="text-xs text-amber-700 mt-1 font-bold">มีเศษไม้ส่วนเกินค้างใบเบิก +0.00 คิวฟุต</span>
+                                </div>
+                            </div>
+
+                            <!-- List of Pallets to pickup -->
+                            <div class="space-y-3">
+                                <h4 class="text-sm font-bold text-slate-700 flex items-center gap-1.5">
+                                    <i data-lucide="truck" class="text-amber-700 w-5 h-5"></i>
+                                    พาเลทที่จะต้องไปหยิบจากคลังสินค้า:
+                                </h4>
+                                <div id="res-pallets-list-cards" class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[190px] overflow-y-auto pr-1">
+                                    <!-- List of Selected Pallets Card will be injected here -->
+                                </div>
+                            </div>
+
+                            <!-- Advisory statement -->
+                            <div class="bg-blue-50/80 border border-blue-100 p-4 rounded-xl text-xs text-blue-900 leading-relaxed space-y-1">
+                                <div class="font-bold flex items-center gap-1 text-blue-950">
+                                    <i data-lucide="message-square" class="w-4 h-4"></i> คำแนะนำและวิเคราะห์เศษคลัง:
+                                </div>
+                                <div id="res-analysis-text">
+                                    วิเคราะห์รายละเอียดตามหน้างานการหยิบไม้จริง...
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= TAB 2: STOCK MANAGEMENT ================= -->
+        <section id="section-stock" class="hidden space-y-6">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <i data-lucide="database" class="text-amber-700"></i> คลังข้อมูลพาเลทไม้ในระบบ (Inbound)
+                    </h2>
+                    <p class="text-sm text-slate-500">บันทึก ปรับปรุง และตั้งค่าจำลองพาเลทที่มีอยู่เพื่อทดสอบระบบคำนวณตามจริง</p>
+                </div>
+                
+                <div class="flex gap-2 w-full sm:w-auto">
+                    <button onclick="openAddPalletModal()" class="flex-1 sm:flex-initial bg-amber-700 hover:bg-amber-800 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 shadow-sm">
+                        <i data-lucide="plus" class="w-4 h-4"></i> เพิ่มพาเลทใหม่
+                    </button>
+                    <button onclick="resetStockToDefault()" class="border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i> โหลดข้อมูลจาก Excel รายวัน
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filters for Stock List -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                <div class="relative md:col-span-2">
+                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4"></i>
+                    <input type="text" id="search-pallet-input" oninput="renderStockTable()" placeholder="ค้นหาพาเลท ID, ขนาดหน้าไม้..." class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500">
+                </div>
+                <div>
+                    <select id="filter-wood-face" onchange="renderStockTable()" class="w-full py-2 px-3 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500">
+                        <option value="all">หน้าไม้: ทั้งหมด</option>
+                        <!-- Injected Dynamically -->
+                    </select>
+                </div>
+                <div>
+                    <select id="filter-status" onchange="renderStockTable()" class="w-full py-2 px-3 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500">
+                        <option value="all">สถานะ: ทั้งหมด</option>
+                        <option value="Available">ว่าง (Available)</option>
+                        <option value="Delivered">จ่ายออกแล้ว (Delivered)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Main Stock Table -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider bg-slate-50/50">
+                                <th class="py-4 px-6">พาเลท ID</th>
+                                <th class="py-4 px-6">ชนิดไม้</th>
+                                <th class="py-4 px-6">หน้าไม้ / ขนาด</th>
+                                <th class="py-4 px-6 text-right">จำนวนคิวฟุต (CFT)</th>
+                                <th class="py-4 px-6 text-center">สถานะ</th>
+                                <th class="py-4 px-6 text-center">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stock-table-body" class="divide-y divide-slate-100 text-sm text-slate-700">
+                            <!-- Injected dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 text-slate-400 py-8 border-t border-slate-800 mt-12">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4 text-sm">
+            <div>
+                <p class="font-semibold text-slate-200">ระบบคัดกรองไม้แปรรูปและพาเลทไม้ตามหน้าไม้เบิก</p>
+                <p class="text-xs text-slate-500 mt-1">ช่วยแก้ปัญหาการจ่ายเศษไม้สับสนหน้าและคิวฟุตไม่ลงตัวระหว่าง คลังไม้ & PD</p>
+            </div>
+            <div class="flex gap-4">
+                <a href="#" class="hover:text-white transition-colors">เอกสารเชื่อมโยงระบบ SAP</a>
+                <span class="text-slate-700">|</span>
+                <p>&copy; 2026 Wood Stack Solution Corp.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- ADD PALLET MODAL -->
+    <div id="modal-add-pallet" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden transform transition-all scale-100">
+            <div class="bg-amber-800 px-6 py-4 flex justify-between items-center text-white">
+                <h3 class="font-bold text-lg flex items-center gap-2">
+                    <i data-lucide="plus-circle"></i> เพิ่มพาเลทเข้าคลังไม้
+                </h3>
+                <button onclick="closeAddPalletModal()" class="hover:bg-amber-900/50 p-1.5 rounded-lg transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <form id="form-add-pallet" onsubmit="saveNewPallet(event)" class="p-6 space-y-4">
+                <div class="space-y-1">
+                    <label class="block text-xs font-semibold text-slate-500 uppercase">พาเลท ID</label>
+                    <input type="text" id="add-id" placeholder="ระบุ ID เช่น PLT-101" required class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none uppercase font-bold">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-1">
+                        <label class="block text-xs font-semibold text-slate-500 uppercase">ชนิดไม้</label>
+                        <select id="add-type" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white">
+                            <option value="ไม้ยางพารา">ไม้ยางพารา</option>
+                            <option value="ไม้สน">ไม้สน</option>
+                            <option value="ไม้สัก">ไม้สัก</option>
+                        </select>
+                    </div>
+
+                    <div class="space-y-1">
+                        <label class="block text-xs font-semibold text-slate-500 uppercase">ขนาดหน้าไม้</label>
+                        <input type="text" id="add-face" placeholder="เช่น 1x3 นิ้ว หรือ 2x4 นิ้ว" required class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <div class="space-y-1">
+                    <label class="block text-xs font-semibold text-slate-500 uppercase">ปริมาณไม้จริง (คิวฟุต)</label>
+                    <div class="relative">
+                        <input type="number" id="add-cft" step="0.01" min="0.01" placeholder="เช่น 30.55" required class="w-full pl-3 pr-16 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-right font-bold text-amber-800">
+                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">คิวฟุต</span>
+                    </div>
+                </div>
+
+                <div class="space-y-1">
+                    <label class="block text-xs font-semibold text-slate-500 uppercase">ตำแหน่งจัดเก็บ / รายละเอียด</label>
+                    <input type="text" id="add-desc" placeholder="เช่น โซน C1, บรรทัดแถวที่ 2" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                </div>
+
+                <div class="flex gap-2 pt-4 border-t">
+                    <button type="button" onclick="closeAddPalletModal()" class="flex-1 border border-slate-200 hover:bg-slate-50 py-2 rounded-xl text-sm font-semibold transition-colors">
+                        ยกเลิก
+                    </button>
+                    <button type="submit" class="flex-1 bg-amber-700 hover:bg-amber-800 text-white py-2 rounded-xl text-sm font-semibold transition-colors shadow-sm">
+                        บันทึก Inbound
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- CUSTOM TOAST NOTIFICATION -->
+    <div id="toast-box" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm"></div>
+
+    <!-- MAIN LOGIC JAVASCRIPT -->
+    <script>
+        // Default Mock Data synchronized with Inbound_Warehouse_Report_2026-05-28.xlsx
+        const EXCEL_DEFAULT_STOCK = [
+            { id: "PLT-001", type: "ไม้ยางพารา", face: "1x3 นิ้ว", cft: 30.55, desc: "เกรด A - โซน C1", status: "Available" },
+            { id: "PLT-002", type: "ไม้ยางพารา", face: "1x3 นิ้ว", cft: 30.55, desc: "เกรด A - โซน C1", status: "Available" },
+            { id: "PLT-003", type: "ไม้ยางพารา", face: "1x3 นิ้ว", cft: 30.55, desc: "เกรด A - โซน C2", status: "Available" },
+            { id: "PLT-004", type: "ไม้ยางพารา", face: "1x3 นิ้ว", cft: 30.55, desc: "เกรด A - โซน C2", status: "Available" },
+            { id: "PLT-005", type: "ไม้ยางพารา", face: "2x4 นิ้ว", cft: 45.20, desc: "เกรด A - โซน C3", status: "Available" },
+            { id: "PLT-006", type: "ไม้ยางพารา", face: "2x4 นิ้ว", cft: 45.20, desc: "เกรด A - โซน C3", status: "Available" },
+            { id: "PLT-007", type: "ไม้สน", face: "1x4 นิ้ว", cft: 15.20, desc: "เกรดพรีเมียม โซน D1", status: "Available" },
+            { id: "PLT-008", type: "ไม้สน", face: "1x4 นิ้ว", cft: 20.10, desc: "เกรดพรีเมียม โซน D1", status: "Available" },
+            { id: "PLT-009", type: "ไม้สัก", face: "1.5x3 นิ้ว", cft: 10.00, desc: "เกรดพิเศษ โซน VIP", status: "Available" },
+            { id: "PLT-010", type: "ไม้สัก", face: "1.5x3 นิ้ว", cft: 25.00, desc: "เกรดพิเศษ โซน VIP", status: "Available" }
+        ];
+
+        let palletsStock = [];
+        let currentlySelectedForPickup = [];
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedStock = localStorage.getItem('wood_pallets_stock_v2');
+            if (savedStock) {
+                try {
+                    palletsStock = JSON.parse(savedStock);
+                } catch(e) {
+                    palletsStock = [...EXCEL_DEFAULT_STOCK];
+                }
+            } else {
+                palletsStock = [...EXCEL_DEFAULT_STOCK];
+                saveStockToStorage();
+            }
+
+            renderAll();
+        });
+
+        function saveStockToStorage() {
+            localStorage.setItem('wood_pallets_stock_v2', JSON.stringify(palletsStock));
+        }
+
+        function switchTab(tabName) {
+            const btnSearch = document.getElementById('tab-search');
+            const btnStock = document.getElementById('tab-stock');
+            const secSearch = document.getElementById('section-search');
+            const secStock = document.getElementById('section-stock');
+
+            if (tabName === 'search') {
+                btnSearch.className = "px-4 py-1.5 rounded-md text-sm font-medium transition-all bg-amber-600 text-white";
+                btnStock.className = "px-4 py-1.5 rounded-md text-sm font-medium transition-all text-amber-200 hover:text-white";
+                secSearch.classList.remove('hidden');
+                secStock.classList.add('hidden');
+            } else {
+                btnStock.className = "px-4 py-1.5 rounded-md text-sm font-medium transition-all bg-amber-600 text-white";
+                btnSearch.className = "px-4 py-1.5 rounded-md text-sm font-medium transition-all text-amber-200 hover:text-white";
+                secStock.classList.remove('hidden');
+                secSearch.classList.add('hidden');
+            }
+            renderAll();
+        }
+
+        // Generate wood face dropdown dynamically based on unique options in active stock
+        function populateWoodFaceDropdowns() {
+            const searchDropdown = document.getElementById('search-wood-face');
+            const filterDropdown = document.getElementById('filter-wood-face');
+            
+            // Get unique active wood faces
+            const uniqueFaces = [...new Set(palletsStock.map(p => `${p.type} (${p.face})`))];
+            
+            // Populate PD Search Page Select
+            const previousSearchVal = searchDropdown.value;
+            searchDropdown.innerHTML = uniqueFaces.map(face => `
+                <option value="${face}">${face}</option>
+            `).join('');
+            
+            if (previousSearchVal && uniqueFaces.includes(previousSearchVal)) {
+                searchDropdown.value = previousSearchVal;
+            }
+
+            // Populate Database Filter Page Select
+            filterDropdown.innerHTML = `<option value="all">หน้าไม้: ทั้งหมด</option>` + uniqueFaces.map(face => `
+                <option value="${face}">${face}</option>
+            `).join('');
+        }
+
+        function renderAll() {
+            populateWoodFaceDropdowns();
+            renderCalculatorStockPreview();
+            renderStockTable();
+            autoCalculate();
+            lucide.createIcons();
+        }
+
+        // Real-time calculation logic based on selected face and input target
+        function autoCalculate() {
+            const targetInput = document.getElementById('target-cft');
+            const targetCFT = parseFloat(targetInput.value);
+            const selectedFaceText = document.getElementById('search-wood-face').value;
+
+            const activeView = document.getElementById('active-result-view');
+            const placeholder = document.getElementById('no-result-placeholder');
+
+            if (isNaN(targetCFT) || targetCFT <= 0 || !selectedFaceText) {
+                activeView.classList.add('hidden');
+                placeholder.classList.remove('hidden');
+                currentlySelectedForPickup = [];
+                return;
+            }
+
+            activeView.classList.remove('hidden');
+            placeholder.classList.add('hidden');
+
+            // Parse selected type and face from "ไม้ยางพารา (1x3 นิ้ว)" format
+            const parsedType = selectedFaceText.split(' (')[0];
+            const parsedFace = selectedFaceText.split(' (')[1].slice(0, -1);
+
+            // Filter pallets that match the exact type, face, and are Available
+            const matchedPallets = palletsStock.filter(p => p.status === 'Available' && p.type === parsedType && p.face === parsedFace);
+
+            if (matchedPallets.length === 0) {
+                showNoWoodAvailableUI();
+                return;
+            }
+
+            const totalAvailable = matchedPallets.reduce((s, p) => s + p.cft, 0);
+            if (totalAvailable < targetCFT) {
+                showNotEnoughWoodUI(targetCFT, totalAvailable, parsedFace);
+                return;
+            }
+
+            // Subset sum optimization (Closest sum >= targetCFT)
+            matchedPallets.sort((a, b) => a.cft - b.cft);
+
+            let bestCombination = null;
+            let bestSum = Infinity;
+
+            function search(index, currentCombo, currentSum) {
+                if (currentSum >= targetCFT) {
+                    if (currentSum < bestSum) {
+                        bestSum = currentSum;
+                        bestCombination = [...currentCombo];
+                    }
+                    return;
+                }
+                if (index >= matchedPallets.length) return;
+
+                // Branch 1: include current pallet
+                currentCombo.push(matchedPallets[index]);
+                search(index + 1, currentCombo, currentSum + matchedPallets[index].cft);
+                currentCombo.pop();
+
+                // Branch 2: exclude current pallet
+                search(index + 1, currentCombo, currentSum);
+            }
+
+            search(0, [], 0);
+
+            if (bestCombination && bestCombination.length > 0) {
+                currentlySelectedForPickup = bestCombination;
+                displayOptimizedResults(targetCFT, bestSum, bestCombination);
+            } else {
+                showNoCombinationFoundUI();
+            }
+        }
+
+        function displayOptimizedResults(target, actual, selected) {
+            document.getElementById('res-target').innerText = target.toFixed(2);
+            document.getElementById('res-actual').innerText = actual.toFixed(2);
+            
+            const excess = actual - target;
+            const excessLabel = document.getElementById('res-excess-label');
+            excessLabel.innerText = `มีเศษไม้ส่วนเกินค้างใบเบิก +${excess.toFixed(2)} คิวฟุต`;
+            excessLabel.className = excess > 0 ? "text-xs text-red-600 mt-1 font-bold" : "text-xs text-emerald-700 mt-1 font-bold";
+
+            // Render selected pallet cards
+            const listContainer = document.getElementById('res-pallets-list-cards');
+            listContainer.innerHTML = selected.map(p => `
+                <div class="p-3 bg-amber-50/70 border-2 border-amber-500/20 rounded-xl flex justify-between items-center relative overflow-hidden group hover:border-amber-500 transition-all">
+                    <div class="absolute left-0 top-0 bottom-0 w-1 bg-amber-600"></div>
+                    <div>
+                        <span class="font-extrabold text-slate-800 text-sm block">${p.id}</span>
+                        <span class="text-[10px] text-slate-500 font-semibold">${p.type} (${p.face})</span>
+                        <span class="text-[9px] text-amber-800 block italic">${p.desc || '-'}</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="font-extrabold text-amber-800 text-base block">${p.cft.toFixed(2)}</span>
+                        <span class="text-[9px] text-slate-400 uppercase font-bold">CFT</span>
+                    </div>
+                </div>
+            `).join('');
+
+            // Write explanation and analysis
+            const analysisText = document.getElementById('res-analysis-text');
+            let explanation = `ระบบตรวจสอบหน้าไม้และจัดสรรไม้ <strong>${pTypeAndFaceText()}</strong> จำนวน <strong>${selected.length} พาเลท</strong> `;
+            explanation += `ซึ่งจ่ายไม้รวมทั้งสิ้น <strong>${actual.toFixed(2)} คิวฟุต</strong> (เป้าหมายคือ ${target.toFixed(2)} คิวฟุต)`;
+            
+            if (excess > 0) {
+                explanation += `<br><span class="text-amber-900 font-bold">คำสั่งงานถึงหน้างาน:</span> ในชุดนี้ มีเศษไม้ส่วนเกิน ${excess.toFixed(2)} คิวฟุต ที่ค้างจากการตัดหน้าเลท ฝ่ายผลิตสามารถเบิกสะสมไว้เพื่อประหยัดจำนวนไม้เต็มพาเลทถัดไปได้`;
+            }
+            analysisText.innerHTML = explanation;
+        }
+
+        function pTypeAndFaceText() {
+            return document.getElementById('search-wood-face').value;
+        }
+
+        function showNoWoodAvailableUI() {
+            document.getElementById('res-target').innerText = "0.00";
+            document.getElementById('res-actual').innerText = "0.00";
+            document.getElementById('res-excess-label').innerText = "ไม่มีไม้ในคลัง";
+            document.getElementById('res-pallets-list-cards').innerHTML = '<div class="col-span-2 text-center text-red-500 py-6 text-sm">ไม่มีพาเลทไม้พร้อมเบิกสำหรับหน้าไม้นี้เลยในตอนนี้</div>';
+            document.getElementById('res-analysis-text').innerText = "ระบบไม่พบไม้ขนาดหน้าดังกล่าวที่สถานะพร้อมใช้ กรุณาเพิ่ม Inbound เข้าระบบคลังสินค้า";
+        }
+
+        function showNotEnoughWoodUI(target, total, face) {
+            document.getElementById('res-target').innerText = target.toFixed(2);
+            document.getElementById('res-actual').innerText = "ไม่เพียงพอ";
+            document.getElementById('res-excess-label').innerText = `สต็อกรวมมีน้อยกว่าความต้องการ`;
+            document.getElementById('res-pallets-list-cards').innerHTML = `
+                <div class="col-span-2 text-center text-amber-600 py-4 text-xs font-semibold bg-amber-50 rounded-xl">
+                    สต็อกหน้าไม้ ${face} ขาดไป ${(target - total).toFixed(2)} คิวฟุต
+                </div>
+            `;
+            document.getElementById('res-analysis-text').innerHTML = `ขณะนี้สต็อกหน้าไม้ที่ระบุมีให้เบิกทั้งหมดเพียง <strong>${total.toFixed(2)} CFT</strong> ซึ่งไม่เพียงพอที่จะจ่ายไม้ได้ตามจำนวนที่เบิกคือ <strong>${target.toFixed(2)} CFT</strong>`;
+        }
+
+        function showNoCombinationFoundUI() {
+            document.getElementById('res-pallets-list-cards').innerHTML = '<div class="col-span-2 text-center py-6 text-slate-400">คำนวณไม่สำเร็จ</div>';
+        }
+
+        // Renders active available stock in Left Column of Search Tab
+        function renderCalculatorStockPreview() {
+            const listEl = document.getElementById('mini-stock-list');
+            const badgeEl = document.getElementById('badge-total-stock');
+            const selectedFaceText = document.getElementById('search-wood-face').value;
+
+            if (!selectedFaceText) {
+                listEl.innerHTML = `<div class="p-4 text-center text-xs text-slate-400">กรุณาเลือกประเภทหน้าไม้</div>`;
+                return;
+            }
+
+            const parsedType = selectedFaceText.split(' (')[0];
+            const parsedFace = selectedFaceText.split(' (')[1].slice(0, -1);
+
+            const availablePallets = palletsStock.filter(p => p.status === 'Available' && p.type === parsedType && p.face === parsedFace);
+
+            badgeEl.innerText = `${availablePallets.length} พาเลท`;
+
+            if (availablePallets.length === 0) {
+                listEl.innerHTML = `
+                    <div class="p-6 text-center text-slate-400 text-xs">
+                        ไม่มีพาเลทว่างขนาดหน้าไม้นี้
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '<div class="space-y-2">';
+            availablePallets.forEach(p => {
+                html += `
+                    <div class="p-2.5 border border-slate-100 rounded-xl bg-slate-50 flex justify-between items-center text-xs">
+                        <div>
+                            <span class="font-bold text-slate-800 block">${p.id}</span>
+                            <span class="text-[10px] text-amber-800 font-bold">${p.type} (${p.face})</span>
+                            <span class="text-[9px] text-slate-400 block">${p.desc || '-'}</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="font-bold text-amber-800 block text-sm">${p.cft.toFixed(2)} CFT</span>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            listEl.innerHTML = html;
+        }
+
+        // Renders primary stock grid inside Settings/Stock tab
+        function renderStockTable() {
+            const tbody = document.getElementById('stock-table-body');
+            const searchVal = document.getElementById('search-pallet-input').value.toLowerCase();
+            const faceFilter = document.getElementById('filter-wood-face').value;
+            const statusFilter = document.getElementById('filter-status').value;
+
+            const filtered = palletsStock.filter(p => {
+                const combinedLabel = `${p.type} (${p.face})`.toLowerCase();
+                const matchesSearch = p.id.toLowerCase().includes(searchVal) || p.face.toLowerCase().includes(searchVal) || p.type.toLowerCase().includes(searchVal);
+                const matchesFace = faceFilter === 'all' || `${p.type} (${p.face})` === faceFilter;
+                const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
+                return matchesSearch && matchesFace && matchesStatus;
+            });
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="py-12 text-center text-slate-400">
+                            <div class="flex flex-col items-center justify-center space-y-2">
+                                <i data-lucide="inbox" class="w-8 h-8 text-slate-300"></i>
+                                <span>ไม่พบข้อมูลพาเลทไม้ตามหน้าไม้ที่ค้นหา</span>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(pallet => {
+                const statusClass = pallet.status === 'Available' 
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-100' 
+                    : 'bg-slate-100 text-slate-600 border-slate-200';
+                const statusText = pallet.status === 'Available' ? 'ว่าง (Available)' : 'จ่ายออกแล้ว';
+
+                return `
+                    <tr class="hover:bg-slate-50/50 transition-colors">
+                        <td class="py-4 px-6 font-bold text-slate-800">${pallet.id}</td>
+                        <td class="py-4 px-6">
+                            <div class="font-semibold text-slate-700">${pallet.type}</div>
+                        </td>
+                        <td class="py-4 px-6">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                                ${pallet.face}
+                            </span>
+                            <div class="text-[10px] text-slate-400 mt-0.5">${pallet.desc || '-'}</div>
+                        </td>
+                        <td class="py-4 px-6 text-right font-bold text-amber-800 text-base">${pallet.cft.toFixed(2)} CFT</td>
+                        <td class="py-4 px-6 text-center">
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${statusClass}">
+                                ${statusText}
+                            </span>
+                        </td>
+                        <td class="py-4 px-6 text-center">
+                            <div class="flex items-center justify-center gap-2">
+                                <button onclick="togglePalletStatus('${pallet.id}')" title="เปลี่ยนสถานะ" class="p-1.5 hover:bg-slate-100 rounded text-slate-600 hover:text-amber-700 transition-colors">
+                                    <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="deletePallet('${pallet.id}')" title="ลบ" class="p-1.5 hover:bg-red-50 rounded text-red-500 hover:text-red-700 transition-colors">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            lucide.createIcons();
+        }
+
+        // Confirms the actual payout from warehouse
+        function confirmDispense() {
+            if (currentlySelectedForPickup.length === 0) return;
+
+            const totalCFTDispensed = currentlySelectedForPickup.reduce((sum, p) => sum + p.cft, 0);
+            
+            const confirmAction = confirm(`ยืนยันการตัดจ่ายสต็อกพาเลทไม้ในระบบ? \n\nจำนวนพาเลท: ${currentlySelectedForPickup.length} เลท\nยอดเบิกได้จริงรวม: ${totalCFTDispensed.toFixed(2)} CFT`);
+            if (!confirmAction) return;
+
+            // Mark these pallets as Delivered
+            const idsToDeliver = currentlySelectedForPickup.map(p => p.id);
+            palletsStock = palletsStock.map(p => {
+                if (idsToDeliver.includes(p.id)) {
+                    return { ...p, status: 'Delivered' };
+                }
+                return p;
+            });
+
+            saveStockToStorage();
+            
+            currentlySelectedForPickup = [];
+            document.getElementById('target-cft').value = '';
+
+            renderAll();
+            showToast("ตัดยอดไม้สำเร็จ", "สถานะพาเลทถูกบันทึกเป็น 'จ่ายออกแล้ว' ในคลังเรียบร้อย!", "success");
+        }
+
+        function openAddPalletModal() {
+            document.getElementById('modal-add-pallet').classList.remove('hidden');
+            document.getElementById('add-id').value = 'PLT-' + Math.floor(100 + Math.random() * 900);
+        }
+
+        function closeAddPalletModal() {
+            document.getElementById('modal-add-pallet').classList.add('hidden');
+            document.getElementById('form-add-pallet').reset();
+        }
+
+        function saveNewPallet(e) {
+            e.preventDefault();
+            const id = document.getElementById('add-id').value.trim();
+            const type = document.getElementById('add-type').value;
+            const face = document.getElementById('add-face').value.trim();
+            const cft = parseFloat(document.getElementById('add-cft').value);
+            const desc = document.getElementById('add-desc').value.trim();
+
+            if (!id || !face || isNaN(cft) || cft <= 0) {
+                showToast("ข้อมูลไม่ครบ", "กรุณาระบุข้อมูลให้ครบถ้วน", "warning");
+                return;
+            }
+
+            if (palletsStock.some(p => p.id.toUpperCase() === id.toUpperCase())) {
+                showToast("ID นี้มีอยู่แล้ว", "ไม่สามารถใช้ ID ซ้ำกันได้", "error");
+                return;
+            }
+
+            palletsStock.unshift({
+                id: id.toUpperCase(),
+                type,
+                face,
+                cft,
+                desc: desc || "เพิ่มเติมโดยคลัง",
+                status: "Available"
+            });
+
+            saveStockToStorage();
+            closeAddPalletModal();
+            renderAll();
+            showToast("เพิ่มสำเร็จ", `แอดพาเลท ${id} ขนาดหน้าไม้ ${face} เรียบร้อย`, "success");
+        }
+
+        function togglePalletStatus(palletId) {
+            palletsStock = palletsStock.map(p => {
+                if (p.id === palletId) {
+                    const nextStatus = p.status === 'Available' ? 'Delivered' : 'Available';
+                    showToast("เปลี่ยนสถานะ", `เปลี่ยน ${p.id} เป็น ${nextStatus === 'Available' ? 'ว่าง' : 'จ่ายออก'}`, "info");
+                    return { ...p, status: nextStatus };
+                }
+                return p;
+            });
+            saveStockToStorage();
+            renderAll();
+        }
+
+        function deletePallet(palletId) {
+            if (confirm(`คุณแน่ใจว่าต้องการลบพาเลท ${palletId} ออกจากคลัง?`)) {
+                palletsStock = palletsStock.filter(p => p.id !== palletId);
+                saveStockToStorage();
+                renderAll();
+                showToast("ลบสำเร็จ", `นำพาเลท ${palletId} ออกแล้ว`, "success");
+            }
+        }
+
+        function resetStockToDefault() {
+            if (confirm("ต้องการอัปเดตสต็อกคลังไม้รายวันโดยซิงค์ตามรายงานจริงใน Inbound_Warehouse_Report_2026-05-28.xlsx หรือไม่?")) {
+                palletsStock = [...EXCEL_DEFAULT_STOCK];
+                saveStockToStorage();
+                renderAll();
+                showToast("ซิงค์รายงานสำเร็จ", "ข้อมูลพาเลทและหน้าไม้ถูกอัปเดตเรียบร้อยแล้ว", "success");
+            }
+        }
+
+        function showToast(title, message, type = "info") {
+            const toastBox = document.getElementById('toast-box');
+            const toast = document.createElement('div');
+            
+            let icon = 'info';
+            let colorClass = 'bg-white border-blue-100 text-blue-800';
+            let iconColor = 'text-blue-500';
+            
+            if (type === 'success') {
+                icon = 'check-circle';
+                colorClass = 'bg-emerald-50 border-emerald-100 text-emerald-800';
+                iconColor = 'text-emerald-500';
+            } else if (type === 'error') {
+                icon = 'alert-octagon';
+                colorClass = 'bg-red-50 border-red-100 text-red-800';
+                iconColor = 'text-red-500';
+            } else if (type === 'warning') {
+                icon = 'alert-triangle';
+                colorClass = 'bg-amber-50 border-amber-100 text-amber-800';
+                iconColor = 'text-amber-500';
+            }
+
+            toast.className = `flex items-start gap-3 p-4 rounded-xl border shadow-lg ${colorClass} transition-all duration-300 transform translate-y-5 opacity-0`;
+            toast.innerHTML = `
+                <div class="mt-0.5 ${iconColor}">
+                    <i data-lucide="${icon}" class="w-5 h-5"></i>
+                </div>
+                <div class="flex-grow">
+                    <h5 class="font-bold text-sm">${title}</h5>
+                    <p class="text-xs opacity-90 mt-0.5">${message}</p>
+                </div>
+                <button class="text-slate-400 hover:text-slate-600" onclick="this.parentElement.remove()">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            `;
+
+            toastBox.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-5', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+    </script>
+</body>
+</html>
